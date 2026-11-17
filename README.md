@@ -1,141 +1,141 @@
-# google-ultra
+Google-ultra
 
-Google One 的 AI Ultra 有个 12 个月免费试用的 offer，任何页面上都看不到，只存在于 Play 结算库（BillingClient）的返回值里。这个脚本把「查 offer → 拉起 Play 收银台 → 确认 0 元 → 开通」串成了一条命令。
+Google One's AI Ultra có một offer dùng thử miễn phí 12 tháng, không hiển thị trên bất kỳ trang nào, chỉ tồn tại trong giá trị trả về của thư viện thanh toán Play (BillingClient). Script này nối chuỗi "tra offer → gọi Play checkout → xác nhận 0 đồng → kích hoạt" thành một lệnh duy nhất.
 
-原理是借 Google One 自己的进程调 BillingClient，不需要 Xposed，不需要改 APK。
+Nguyên lý là mượn chính tiến trình của Google One để gọi BillingClient, không cần Xposed, không cần sửa APK.
 
-## 能拿到什么
+Lấy được gì
 
-拿到的是 **Ultra 5x，20TB，12 个月 $0**，到期前取消就不用付钱。开通后 Play 订阅页会写「即将扣款 2027-11-17 US$99.99/月」，这是试用结束后的价格，不是现在扣。
+Nhận được là **Ultra 5x, 20TB, 12 tháng $0**, hủy trước khi hết hạn thì không phải trả tiền. Sau khi kích hoạt, trang đăng ký Play sẽ ghi "sắp trừ tiền 2027-11-17 US$99.99/tháng", đây là giá sau khi hết dùng thử, không phải trừ ngay bây giờ.
 
-30TB 那档（20x）也查得到 offer，但 Play 结算时会二次校验，大部分号会弹「您不符合免费试用条件」。这个脚本不会去点它。
+Gói 30TB (20x) cũng tra được offer, nhưng khi thanh toán Play sẽ kiểm tra lại lần hai, phần lớn tài khoản sẽ bị báo "bạn không đủ điều kiện dùng thử miễn phí". Script này sẽ không bấm vào đó.
 
-## 需要什么
+Cần gì
 
-一台 root 过的安卓手机，USB 连着电脑。Magisk、KernelSU、APatch 都行，模拟器也行。
+Một chiếc điện thoại Android đã root, nối USB với máy tính. Magisk, KernelSU, APatch đều được, giả lập cũng được.
 
-电脑上要 Python 3.9 以上，外加两个包：
+Máy tính cần Python 3.9 trở lên, cộng thêm hai gói:
 
 ```bash
 pip3 install frida
 ```
 
-adb 用 Android SDK 里的 platform-tools。装好后 `adb devices` 能看到手机就行。没装过的话，Mac 上 `brew install android-platform-tools`，Windows 去下 platform-tools 压缩包，解压后把目录加进 PATH。
+adb dùng platform-tools trong Android SDK. Cài xong adb devices thấy được điện thoại là được. Nếu chưa cài, trên Mac brew install android-platform-tools, trên Windows tải gói nén platform-tools, giải nén rồi thêm thư mục vào PATH.
 
-手机上要开「开发者选项 → USB 调试」，插上后在弹窗里点允许。
+Trên điện thoại cần bật "Tùy chọn nhà phát triển → Gỡ lỗi USB", cắm vào rồi bấm cho phép trong hộp thoại bật lên.
 
-## 用法
+Cách dùng
 
-先自检一遍环境，它会检查设备、root、frida-server、推送计费模块，还会顺手关掉会拦截 Play 网络的代理和 Clash：
+Trước tiên tự kiểm tra môi trường một lượt, nó sẽ kiểm tra thiết bị, root, frida-server, đẩy module thanh toán, và tiện tay tắt proxy với Clash có thể chặn mạng Play:
 
 ```bash
 python3 ultra0.py --check
 ```
 
-全绿就可以跑号了。
+Tất cả xanh là có thể chạy tài khoản.
 
-账号写成一个文本文件，一行一个，字段用四个短横线隔开：
+Tài khoản viết vào một file text, mỗi dòng một cái, các trường cách nhau bằng bốn dấu gạch ngang:
 
 ```
-邮箱----密码----辅助邮箱----2FA密钥----卡号----有效期----CVC----持卡人----邮编
+email----mật khẩu----email phụ----khóa 2FA----số thẻ----ngày hết hạn----CVC----chủ thẻ----mã bưu chính
 ```
 
-后面几项留空也行。刚买的新号一般没有 2FA，那就留空：
+Mấy mục sau để trống cũng được. Tài khoản mới mua thường không có 2FA, thì để trống:
 
 ```
 abc123@gmail.com----mypassword----
 ```
 
-带卡的话：
+Nếu có thẻ:
 
 ```
 abc123@gmail.com----mypassword--------4242424242424242----10/29----326----ZHANG SAN----97201
 ```
 
-地址不填会默认用 `123 Main St, Portland, OR 97201`，俄勒冈免消费税。
+Không điền địa chỉ sẽ mặc định dùng 123 Main St, Portland, OR 97201, Oregon miễn thuế tiêu thụ.
 
-跑：
+Chạy:
 
 ```bash
 python3 ultra0.py accounts.txt
 ```
 
-单个号也可以：
+Một tài khoản cũng được:
 
 ```bash
-python3 ultra0.py --account "abc@gmail.com:密码:2FA密钥"
+python3 ultra0.py --account "abc@gmail.com:mật khẩu:khóa 2FA"
 ```
 
-想看结果，开订阅页确认一下：
+Muốn xem kết quả, mở trang đăng ký xác nhận một chút:
 
 ```
-Play 商店 → 头像 → 付款和订阅 → 订阅
+Cửa hàng Play → ảnh đại diện → Thanh toán và đăng ký → Đăng ký
 ```
 
-## 它内部干了什么
+Bên trong nó làm gì
 
-1. 把账号加到手机（没有就加，有就跳过）
-2. 切 Play 账号。切完一定从头像面板读回来核对，对不上直接退出，不会跑到别的号上
-3. 启动 Google One，用 Frida 挂进去，`DexClassLoader` 加载计费模块
-4. `queryProductDetailsAsync` 查 `g1.play.20tb`，拿回 5 个 offer
-5. 挑免费期最长的那个（`eft-12month`，P1Y），在主线程调 `launchBillingFlow`
-6. 盯着收银台。看到价格是 0 或者「免费试用 12 个月」才点订阅；看到「不符合免费试用条件」就关掉，绝不点
-7. Play 有时会要求重新输密码，脚本自己填
-8. 打开订阅页核对，结果写进 `ultra0-report/`
+1. Thêm tài khoản vào điện thoại (chưa có thì thêm, có rồi thì bỏ qua)
+2. Chuyển tài khoản Play. Chuyển xong nhất định đọc lại từ bảng ảnh đại diện để đối chiếu, không khớp thì thoát ngay, không chạy nhầm sang tài khoản khác
+3. Khởi động Google One, dùng Frida gắn vào, DexClassLoader nạp module thanh toán
+4. queryProductDetailsAsync tra g1.play.20tb, lấy về 5 offer
+5. Chọn cái có thời gian miễn phí dài nhất (eft-12month, P1Y), gọi launchBillingFlow trên main thread
+6. Canh chừng quầy thanh toán. Thấy giá là 0 hoặc "dùng thử miễn phí 12 tháng" mới bấm đăng ký; thấy "không đủ điều kiện dùng thử miễn phí" thì đóng lại, tuyệt đối không bấm
+7. Play đôi khi yêu cầu nhập lại mật khẩu, script tự điền
+8. Mở trang đăng ký đối chiếu, kết quả ghi vào ultra0-report/
 
-## 失败的时候是什么情况
+Khi thất bại thì thế nào
 
-**账号不符合资格。** Play 会说「您不符合免费试用条件，尽管如此，您仍能订阅」。一个号基本只有一次机会：试用一旦发起过，哪怕没确认，offer 也会消失。所以别拿主力号试。
+Tài khoản không đủ điều kiện. Play sẽ báo "bạn không đủ điều kiện dùng thử miễn phí, tuy vậy bạn vẫn có thể đăng ký". Một tài khoản cơ bản chỉ có một cơ hội: một khi đã khởi tạo dùng thử, dù chưa xác nhận, offer cũng sẽ biến mất. Nên đừng lấy tài khoản chính ra thử.
 
-**没有付款方式。** 订阅必须有卡。Play 的加卡页是 WebView，adb 填不进去，脚本会停下来提示你在手机上填完再按回车。每台设备手动绑一次，之后所有号共用这张卡。
+Không có phương thức thanh toán. Đăng ký bắt buộc phải có thẻ. Trang thêm thẻ của Play là WebView, adb không điền vào được, script sẽ dừng lại nhắc bạn điền xong trên điện thoại rồi nhấn Enter. Mỗi thiết bị thao tác thủ công một lần, sau đó mọi tài khoản dùng chung thẻ này.
 
-**Play 账号没切过来。** 脚本会打印当前实际登录的是哪个号，然后退出。这时手动在 Play 里切一下，加上 `--no-switch` 重跑，让它只做校验不再尝试切换：
+Tài khoản Play chưa chuyển sang. Script sẽ in ra tài khoản thực tế đang đăng nhập là cái nào, rồi thoát. Lúc này chuyển thủ công trong Play một chút, thêm --no-switch chạy lại, để nó chỉ kiểm tra không thử chuyển nữa:
 
 ```bash
 python3 ultra0.py accounts.txt --no-switch
 ```
 
-**收银台没弹出来。** 重跑一次。连续两次都不弹，检查一下设备的网络：`settings get global http_proxy`，不是 `null` 就清掉；Clash 这类 VPN 会劫持 DNS，也会让 Play 连不上。
+Quầy thanh toán không bật lên. Chạy lại một lần. Hai lần liên tiếp không bật, kiểm tra mạng của thiết bị: settings get global http_proxy, không phải null thì xóa đi; VPN kiểu Clash sẽ chiếm DNS, cũng khiến Play không kết nối được.
 
-## 一些参数
+Một số tham số
 
 ```bash
---plan 5x      # 只开 20TB
---plan 20x     # 只查 30TB（多数号拿不到试用）
---plan auto    # 默认，两档都查，挑免费期最长的
---no-add       # 账号已经在手机上，跳过加号
---no-switch    # 不自动切账号，只校验当前账号
+--plan 5x      # chỉ mở 20TB
+--plan 20x     # chỉ tra 30TB (phần lớn tài khoản không lấy được dùng thử)
+--plan auto    # mặc định, tra cả hai gói, chọn cái có thời gian miễn phí dài nhất
+--no-add       # tài khoản đã có trên điện thoại, bỏ qua bước thêm
+--no-switch    # không tự chuyển tài khoản, chỉ kiểm tra tài khoản hiện tại
 ```
 
-## 几个说明
+Vài lưu ý
 
-试完之后记得去 Play 里取消订阅，不然到期会扣 $99.99。
+Thử xong nhớ vào Play hủy đăng ký, không thì hết hạn sẽ bị trừ $99.99.
 
-脚本只在本地跑，账号密码和卡号不联网，也不上传任何地方。报告文件在 `ultra0-report/`，里面有 offer 明细和每步结果。
+Script chỉ chạy cục bộ, tài khoản mật khẩu và số thẻ không lên mạng, cũng không tải lên bất kỳ đâu. File báo cáo ở ultra0-report/, bên trong có chi tiết offer và kết quả từng bước.
 
-这段代码只对 Play 结算流程里「客户端能拿到试用 offer」这件事做了利用，没有改任何服务端数据。
+Đoạn code này chỉ lợi dụng việc "client lấy được offer dùng thử" trong quy trình thanh toán Play, không sửa bất kỳ dữ liệu phía server nào.
 
-## 交流
+Liên hệ
 
-有问题进群问。三个群随便进一个，都满了就加我微信，备注「Ultra」，我拉你。
+Có vấn đề vào nhóm hỏi. Ba nhóm vào cái nào cũng được, đều đầy thì thêm WeChat của tôi, ghi chú "Ultra", tôi kéo bạn vào.
 
 <table>
 <tr>
-<td align="center"><b>2 群</b><br><img src="assets/wechat-group.jpg" width="300" alt="2 群二维码"></td>
-<td align="center"><b>3 群</b><br><img src="assets/wechat-group3.jpg" width="300" alt="3 群二维码"></td>
-<td align="center"><b>都满了加我</b><br><img src="assets/wechat-admin.jpg" width="300" alt="微信二维码"></td>
+<td align="center"><b>Nhóm 2</b><br><img src="assets/wechat-group.jpg" width="300" alt="Mã QR nhóm 2"></td>
+<td align="center"><b>Nhóm 3</b><br><img src="assets/wechat-group3.jpg" width="300" alt="Mã QR nhóm 3"></td>
+<td align="center"><b>Đều đầy thì thêm tôi</b><br><img src="assets/wechat-admin.jpg" width="300" alt="Mã QR WeChat"></td>
 </tr>
 </table>
 
-## 友链
+Liên kết bạn bè
 
-本项目在 [LINUX DO](https://linux.do) 社区发布与讨论，感谢社区的支持。
+Dự án này được công bố và thảo luận tại cộng đồng LINUX DO, cảm ơn sự ủng hộ của cộng đồng.
 
-- [LINUX DO](https://linux.do) —— 新的理想主义者社区
-- [LINUX DO 开源推广](https://linux.do/tag/1014) —— 开源项目推广板块
+· LINUX DO —— cộng đồng những người lý tưởng mới
+· LINUX DO Quảng bá mã nguồn mở —— chuyên mục quảng bá dự án mã nguồn mở
 
-[![LINUX DO](https://img.shields.io/badge/LINUX%20DO-%E7%A4%BE%E5%8C%BA-1f6feb)](https://linux.do)
+https://img.shields.io/badge/LINUX%20DO-%E7%A4%BE%E5%8C%BA-1f6feb
 
-## 许可
+Giấy phép
 
-MIT，见 [LICENSE](LICENSE)。
+MIT, xem LICENSE.
